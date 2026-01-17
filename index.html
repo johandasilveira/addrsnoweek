@@ -567,8 +567,12 @@
                                                 >
                                                     
                                                     {/* CARD HEADER */}
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded ${slot.type==='Midi'?'bg-yellow-100 text-yellow-700':'bg-indigo-100 text-indigo-700'}`}>{slot.type}</span>
+                                                    <div className="flex justify-between items-start mb-1 gap-2">
+                                                        <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded ${slot.type==='Midi'?'bg-yellow-100 text-yellow-700':'bg-indigo-100 text-indigo-700'}`}>{slot.type}</span>
+                                                            {/* COOKS IN HEADER */}
+                                                            {slot.cooks && Array.isArray(slot.cooks) && slot.cooks.map(c=><span key={c} className="text-[9px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">{c}</span>)}
+                                                        </div>
                                                         
                                                         {/* DRAG HANDLE */}
                                                         <div 
@@ -585,9 +589,6 @@
                                                     ) : (
                                                         <>
                                                             <div className={`font-bold text-md leading-tight mt-1 ${!slot.recipeName && 'text-red-300 italic'}`}>{slot.recipeName || 'À définir...'}</div>
-                                                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                {slot.cooks && Array.isArray(slot.cooks) && slot.cooks.map(c=><span key={c} className="text-[9px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{c}</span>)}
-                                                            </div>
                                                             {slot.ingredients && Array.isArray(slot.ingredients) && slot.ingredients.length > 0 && <div className="mt-2 text-[9px] font-bold text-blue-500">{slot.ingredients.length} ingrédients</div>}
                                                         </>
                                                     )}
