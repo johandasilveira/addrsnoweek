@@ -38,10 +38,8 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo } from 'react';
         import { createRoot } from 'react-dom/client';
-        // Imports Firebase
         import { initializeApp } from 'firebase/app';
         import { getDatabase, ref, onValue, set } from 'firebase/database';
-        // Icons
         import { 
             Calendar, ShoppingCart, Utensils, Settings, RotateCcw, X, Users, Type, 
             CheckCircle2, Plus, Trash2, Save, Store, ChefHat, UtensilsCrossed, 
@@ -60,12 +58,9 @@
             measurementId: "G-VLPH0412KY"
         };
 
-        // --- 2. INITIALISATION SAFE ---
-        // On initialise l'app
+        // --- 2. INITIALISATION ---
         const app = initializeApp(firebaseConfig);
-        // On récupère la base de données liée à CETTE app
         const db = getDatabase(app);
-        
         const DB_PATH = 'snoweek_data_v1'; 
 
         // --- DONNEES PAR DEFAUT ---
@@ -128,15 +123,8 @@
 
         const MealEditModal = ({ slot, participants, onClose, onSave }) => {
             const [localSlot, setLocalSlot] = useState(slot);
-            
-            // Pour éviter les bugs si des champs manquent
-            const safeSlot = {
-                recipeName: '', isRestaurant: false, cooks: [], ingredients: [], 
-                ...localSlot 
-            };
-
+            const safeSlot = { recipeName: '', isRestaurant: false, cooks: [], ingredients: [], ...localSlot };
             const addIng = () => setLocalSlot({...safeSlot, ingredients: [...safeSlot.ingredients, {id: crypto.randomUUID(), name:'', quantity:1, unit: UNITS[0]}]});
-            
             const updateIng = (id, f, v) => setLocalSlot({...safeSlot, ingredients: safeSlot.ingredients.map(i=>i.id===id?{...i,[f]:v}:i)});
             
             return (
@@ -182,35 +170,38 @@
             // CONNEXION FIREBASE
             useEffect(() => {
                 const dataRef = ref(db, DB_PATH);
-                // Ecoute temps réel
                 const unsubscribe = onValue(dataRef, (snapshot) => {
                     const data = snapshot.val();
-                    if (data) {
-                        setState(data);
-                    } else {
-                        // Première connexion ever : on crée les données
-                        set(dataRef, DEFAULT_STATE);
-                    }
+                    if (data) setState(data); else set(dataRef, DEFAULT_STATE);
                 }, (err) => {
                     console.error(err);
-                    setError("Erreur de connexion : " + err.message);
+                    setError(err.message);
                 });
                 return () => unsubscribe();
             }, []);
 
-            // Sauvegarde
             const save = (newState) => {
-                // Optimistic UI (on met à jour l'écran tout de suite)
                 setState(newState);
-                // On envoie à Firebase
                 set(ref(db, DB_PATH), newState).catch(e => alert("Erreur sauvegarde: "+e.message));
             };
 
-            if (error) return <div className="p-10 text-red-600 font-bold text-center">ERREUR: {error}<br/>Vérifiez que les Règles de Sécurité Firebase sont en "read: true, write: true"</div>;
-            
-            if (!state) return <div className="min-h-screen flex items-center justify-center flex-col gap-2 text-blue-600"><Loader2 className="animate-spin" size={40}/><span className="font-bold tracking-widest text-xs uppercase">Chargement du Planning...</span></div>;
+            const handleToggleRestaurant = (e, slot) => {
+                e.stopPropagation(); // On n'ouvre pas la modale
+                const updatedSlot = {
+                    ...slot,
+                    isRestaurant: !slot.isRestaurant,
+                    // Si on passe en mode resto, on nettoie les champs (optionnel mais propre)
+                    recipeName: !slot.isRestaurant ? '' : slot.recipeName,
+                    cooks: !slot.isRestaurant ? [] : slot.cooks,
+                    ingredients: !slot.isRestaurant ? [] : slot.ingredients
+                };
+                const newSlots = state.slots.map(s => s.id === slot.id ? updatedSlot : s);
+                save({...state, slots: newSlots});
+            };
 
-            // Calculs pour l'affichage
+            if (error) return <div className="p-10 text-red-600 font-bold text-center">ERREUR: {error}</div>;
+            if (!state) return <div className="min-h-screen flex items-center justify-center flex-col gap-2 text-blue-600"><Loader2 className="animate-spin" size={40}/><span className="font-bold tracking-widest text-xs uppercase">Chargement...</span></div>;
+
             const slotsByDate = state.slots.reduce((acc, slot) => {
                 if (!acc[slot.date]) acc[slot.date] = { name: slot.dayName, slots: [] };
                 acc[slot.date].slots.push(slot);
@@ -265,6 +256,18 @@
                                                             {slot.ingredients && slot.ingredients.length > 0 && <div className="mt-2 text-[9px] font-bold text-blue-500">{slot.ingredients.length} ingrédients</div>}
                                                         </>
                                                     )}
+                                                    
+                                                    {/* LE RETOUR DU TOGGLE SWITCH ICI ! */}
+                                                    <div className="absolute bottom-3 right-3 z-20" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={(e) => handleToggleRestaurant(e, slot)}
+                                                            title="Basculer Resto"
+                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ring-1 ring-inset shadow-sm ${slot.isRestaurant ? 'bg-orange-500 ring-orange-600' : 'bg-slate-200 ring-slate-300 hover:bg-slate-300'}`}
+                                                        >
+                                                            <span className={`${slot.isRestaurant ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm`} />
+                                                        </button>
+                                                    </div>
+
                                                 </div>
                                             ))}
                                         </div>
