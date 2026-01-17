@@ -3,39 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADDR SNOWEEK</title>
+    <meta name="description" content="Application collaborative Snoweek">
+    <title>ADDR SNOWEEK - LIVE</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        h1, h2, h3 {
-            font-family: 'Outfit', sans-serif;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Petit indicateur de statut */
+        .status-dot { transition: all 0.3s ease; }
     </style>
+
     <script type="importmap">
-{
-  "imports": {
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react": "https://esm.sh/react@18.2.0",
-    "lucide-react": "https://esm.sh/lucide-react@0.263.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
-  }
-}
-</script>
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1?deps=react@18.2.0",
+        "firebase/app": "https://esm.sh/firebase@10.8.0/app",
+        "firebase/database": "https://esm.sh/firebase@10.8.0/database"
+      }
+    }
+    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -43,13 +40,34 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo } from 'react';
         import { createRoot } from 'react-dom/client';
+        import { initializeApp } from 'firebase/app';
+        import { getDatabase, ref, onValue, set } from 'firebase/database';
         import { 
             Calendar, ShoppingCart, Utensils, Settings, RotateCcw, X, Users, Type, 
             CheckCircle2, Plus, Trash2, Save, Store, ChefHat, UtensilsCrossed, 
-            Search, Printer, Circle, UserPlus 
+            Search, Printer, Circle, UserPlus, Cloud, CloudOff, Loader2
         } from 'lucide-react';
 
-        // --- CONSTANTS ---
+        // --- 1. CONFIGURATION FIREBASE (TES CLES SONT ICI) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDVWhMBU1_j1sM78EahtaMX8KAlsiGUUFA",
+            authDomain: "addrsnoweek.firebaseapp.com",
+            databaseURL: "https://addrsnoweek-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "addrsnoweek",
+            storageBucket: "addrsnoweek.firebasestorage.app",
+            messagingSenderId: "466240679395",
+            appId: "1:466240679395:web:a59f6a72e061560a1f44d6",
+            measurementId: "G-VLPH0412KY"
+        };
+
+        // Initialisation de Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // Référence vers l'endroit où on stocke tout le séjour dans la base
+        const DB_PATH = 'snoweek_data_v1'; 
+
+        // --- CONSTANTES DE DONNEES ---
 
         const DEFAULT_PARTICIPANTS = [
             "Amau", "Ani", "David", "Jojo", "Laure", "Léo", "Lucile", "Nathan", "Paloma", "Ségo", "Solé", "Thib", "Youri"
@@ -89,12 +107,18 @@
             ingredients: []
         }));
 
+        const DEFAULT_STATE = {
+            slots: INITIAL_SLOTS,
+            participants: DEFAULT_PARTICIPANTS,
+            tripName: 'ADDR SNOWEEK',
+            tripSubtitle: 'SÉJOUR JANVIER 2026',
+            version: 1
+        };
+
         // --- COMPONENTS ---
 
-        // 1. Participant Manager
         const ParticipantManager = ({ participants, onChange }) => {
             const [newName, setNewName] = useState('');
-
             const handleAdd = (e) => {
                 e.preventDefault();
                 if (newName.trim() && !participants.includes(newName.trim())) {
@@ -102,52 +126,23 @@
                     setNewName('');
                 }
             };
-
             const handleRemove = (name) => {
-                if (participants.length > 1) {
-                    onChange(participants.filter(p => p !== name));
-                } else {
-                    alert("Il doit rester au moins un participant.");
-                }
+                if (participants.length > 1) onChange(participants.filter(p => p !== name));
+                else alert("Il doit rester au moins un participant.");
             };
-
             return (
                 <div className="space-y-4">
                     <form onSubmit={handleAdd} className="flex gap-2">
                         <div className="relative flex-1">
-                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                                <UserPlus size={16} />
-                            </div>
-                            <input
-                                type="text"
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                placeholder="Nouveau nom..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-sm text-slate-900"
-                            />
+                            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nouveau nom..." className="w-full pl-4 pr-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-sm text-slate-900"/>
                         </div>
-                        <button
-                            type="submit"
-                            disabled={!newName.trim()}
-                            className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md disabled:opacity-50 hover:bg-blue-700 transition-all"
-                        >
-                            <Plus size={20} />
-                        </button>
+                        <button type="submit" disabled={!newName.trim()} className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md disabled:opacity-50 hover:bg-blue-700 transition-all"><Plus size={20} /></button>
                     </form>
-
                     <div className="grid grid-cols-2 gap-2">
                         {participants.map((name) => (
-                            <div 
-                                key={name}
-                                className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl group"
-                            >
+                            <div key={name} className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl group">
                                 <span className="text-xs font-bold text-slate-700">{name}</span>
-                                <button
-                                    onClick={() => handleRemove(name)}
-                                    className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <X size={14} />
-                                </button>
+                                <button onClick={() => handleRemove(name)} className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"><X size={14} /></button>
                             </div>
                         ))}
                     </div>
@@ -155,139 +150,72 @@
             );
         };
 
-        // 2. Shopping Summary
         const ShoppingSummary = ({ items }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [checkedItems, setCheckedItems] = useState(new Set());
-
-            const filteredItems = items.filter(item => 
-                item.name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-
+            const filteredItems = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
             const toggleChecked = (name, unit) => {
                 const key = `${name}-${unit}`;
                 const newChecked = new Set(checkedItems);
-                if (newChecked.has(key)) newChecked.delete(key);
-                else newChecked.add(key);
+                if (newChecked.has(key)) newChecked.delete(key); else newChecked.add(key);
                 setCheckedItems(newChecked);
             };
-
-            const handlePrint = () => {
-                window.print();
-            };
+            const handlePrint = () => window.print();
 
             return (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold text-slate-800">Liste de Courses</h2>
-                        <button 
-                            onClick={handlePrint}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all shadow-sm"
-                        >
-                            <Printer size={14} />
-                            PDF
-                        </button>
+                        <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all shadow-sm"><Printer size={14} /> PDF</button>
                     </div>
-
                     <div className="relative">
-                        <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Search size={18} />
-                        </div>
-                        <input 
-                            type="text"
-                            placeholder="Rechercher..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:outline-none font-semibold text-sm text-slate-900 shadow-sm transition-all"
-                        />
+                        <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-slate-400"><Search size={18} /></div>
+                        <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:outline-none font-semibold text-sm text-slate-900 shadow-sm transition-all"/>
                     </div>
-
                     <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-lg overflow-hidden">
                         {filteredItems.length === 0 ? (
-                            <div className="p-10 text-center text-slate-400">
-                                <p className="text-base font-bold italic">Liste vide.</p>
-                            </div>
+                            <div className="p-10 text-center text-slate-400"><p className="text-base font-bold italic">Liste vide.</p></div>
                         ) : (
                             <div className="divide-y divide-slate-50">
                                 {filteredItems.map((item) => {
                                     const key = `${item.name}-${item.unit}`;
                                     const isChecked = checkedItems.has(key);
                                     return (
-                                        <div 
-                                            key={key} 
-                                            className={`flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-all cursor-pointer ${isChecked ? 'opacity-40' : ''}`}
-                                            onClick={() => toggleChecked(item.name, item.unit)}
-                                        >
+                                        <div key={key} className={`flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-all cursor-pointer ${isChecked ? 'opacity-40' : ''}`} onClick={() => toggleChecked(item.name, item.unit)}>
                                             <div className="flex items-center gap-3">
-                                                <div className={`transition-colors ${isChecked ? 'text-green-500' : 'text-slate-200'}`}>
-                                                    {isChecked ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-                                                </div>
-                                                <div>
-                                                    <span className={`text-sm font-bold text-slate-800 ${isChecked ? 'line-through decoration-slate-400' : ''}`}>
-                                                        {item.name}
-                                                    </span>
-                                                </div>
+                                                <div className={`transition-colors ${isChecked ? 'text-green-500' : 'text-slate-200'}`}>{isChecked ? <CheckCircle2 size={20} /> : <Circle size={20} />}</div>
+                                                <div><span className={`text-sm font-bold text-slate-800 ${isChecked ? 'line-through decoration-slate-400' : ''}`}>{item.name}</span></div>
                                             </div>
-                                            <div className={`px-2.5 py-1 rounded-lg font-black text-xs transition-all ${isChecked ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600'}`}>
-                                                {item.totalQuantity} <span className="text-[10px] uppercase font-bold ml-0.5">{item.unit}</span>
-                                            </div>
+                                            <div className={`px-2.5 py-1 rounded-lg font-black text-xs transition-all ${isChecked ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600'}`}>{item.totalQuantity} <span className="text-[10px] uppercase font-bold ml-0.5">{item.unit}</span></div>
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
                     </div>
-
-                    {items.length > 0 && (
-                        <div className="p-4 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-100 flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-200 text-[10px] font-black uppercase tracking-widest mb-0.5">Total</p>
-                                <h3 className="text-lg font-black">{items.length} Ingrédients</h3>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-sm p-2 rounded-xl">
-                                <ShoppingCart size={20} />
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         };
 
-        // 3. Meal Edit Modal
         const MealEditModal = ({ slot, participants, onClose, onSave }) => {
-            const [recipeName, setRecipeName] = useState(slot.recipeName);
-            const [isRestaurant, setIsRestaurant] = useState(slot.isRestaurant);
-            const [cooks, setCooks] = useState(slot.cooks);
-            const [ingredients, setIngredients] = useState(slot.ingredients);
+            const [recipeName, setRecipeName] = useState(slot.recipeName || '');
+            const [isRestaurant, setIsRestaurant] = useState(slot.isRestaurant || false);
+            const [cooks, setCooks] = useState(slot.cooks || []);
+            const [ingredients, setIngredients] = useState(slot.ingredients || []);
 
             const addIngredient = () => {
-                const newIng = {
-                    id: crypto.randomUUID(),
-                    name: '',
-                    quantity: 1,
-                    unit: UNITS[0]
-                };
+                const newIng = { id: crypto.randomUUID(), name: '', quantity: 1, unit: UNITS[0] };
                 setIngredients([...ingredients, newIng]);
             };
-
-            const removeIngredient = (id) => {
-                setIngredients(ingredients.filter(i => i.id !== id));
-            };
-
-            const updateIngredient = (id, field, value) => {
-                setIngredients(ingredients.map(i => i.id === id ? { ...i, [field]: value } : i));
-            };
-
-            const toggleCook = (name) => {
-                setCooks(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
-            };
+            const removeIngredient = (id) => setIngredients(ingredients.filter(i => i.id !== id));
+            const updateIngredient = (id, field, value) => setIngredients(ingredients.map(i => i.id === id ? { ...i, [field]: value } : i));
+            const toggleCook = (name) => setCooks(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
 
             const handleSave = () => {
                 onSave({
                     ...slot,
                     recipeName: isRestaurant ? '' : recipeName,
                     isRestaurant,
-                    notes: '', 
                     cooks: isRestaurant ? [] : cooks,
                     ingredients: isRestaurant ? [] : ingredients
                 });
@@ -296,176 +224,55 @@
             return (
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
                     <div className="bg-white rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-xl shadow-2xl animate-in slide-in-from-bottom sm:zoom-in duration-300 overflow-hidden">
-                        
                         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-                            <div>
-                                <h2 className="text-lg font-black text-slate-900 leading-tight uppercase tracking-tight">{slot.dayName}</h2>
-                                <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">{slot.type}</p>
-                            </div>
-                            <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                                <X size={18} />
-                            </button>
+                            <div><h2 className="text-lg font-black text-slate-900 leading-tight uppercase tracking-tight">{slot.dayName}</h2><p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">{slot.type}</p></div>
+                            <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><X size={18} /></button>
                         </div>
-
                         <div className="overflow-y-auto p-4 space-y-4 h-[400px] sm:h-[450px] scroll-smooth">
                             <div className={`flex items-center justify-between px-5 py-3.5 rounded-[1.5rem] border-2 transition-all duration-300 ${isRestaurant ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-xl transition-all duration-300 ${isRestaurant ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-200 text-slate-500'}`}>
-                                        <Store size={20} />
-                                    </div>
-                                    <div>
-                                        <span className={`text-xs font-black uppercase tracking-tight block ${isRestaurant ? 'text-orange-600' : 'text-slate-800'}`}>
-                                            Restaurant ?
-                                        </span>
-                                        <span className="text-[10px] font-bold text-slate-400 italic">Pas de courses à faire</span>
-                                    </div>
+                                    <div className={`p-2 rounded-xl transition-all duration-300 ${isRestaurant ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-200 text-slate-500'}`}><Store size={20} /></div>
+                                    <div><span className={`text-xs font-black uppercase tracking-tight block ${isRestaurant ? 'text-orange-600' : 'text-slate-800'}`}>Restaurant ?</span><span className="text-[10px] font-bold text-slate-400 italic">Pas de courses à faire</span></div>
                                 </div>
-                                
-                                <button 
-                                    onClick={() => setIsRestaurant(!isRestaurant)}
-                                    className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ring-4 ring-transparent active:ring-slate-200 ${isRestaurant ? 'bg-orange-500' : 'bg-slate-300'}`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${isRestaurant ? 'translate-x-7' : 'translate-x-1'}`} />
-                                </button>
+                                <button onClick={() => setIsRestaurant(!isRestaurant)} className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ring-4 ring-transparent active:ring-slate-200 ${isRestaurant ? 'bg-orange-500' : 'bg-slate-300'}`}><span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${isRestaurant ? 'translate-x-7' : 'translate-x-1'}`} /></button>
                             </div>
-
                             {isRestaurant ? (
                                 <div className="flex flex-col items-center justify-center h-[280px] space-y-3 animate-in fade-in zoom-in-95 duration-300">
-                                    <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center text-orange-500">
-                                        <Utensils size={40} strokeWidth={1.5} />
-                                    </div>
-                                    <div className="text-center px-6">
-                                        <h3 className="text-xl font-black text-orange-600 uppercase tracking-tighter">REPAS RESTO</h3>
-                                        <p className="text-slate-400 font-bold text-xs italic mt-1 leading-relaxed">Le planning marquera ce créneau comme "Sortie Extérieure". Aucune quantité ne sera ajoutée au total des courses.</p>
-                                    </div>
+                                    <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center text-orange-500"><Utensils size={40} strokeWidth={1.5} /></div>
+                                    <div className="text-center px-6"><h3 className="text-xl font-black text-orange-600 uppercase tracking-tighter">REPAS RESTO</h3><p className="text-slate-400 font-bold text-xs italic mt-1 leading-relaxed">Sortie Extérieure. Rien à acheter.</p></div>
                                 </div>
                             ) : (
                                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Menu</label>
-                                        <input 
-                                            type="text" 
-                                            value={recipeName}
-                                            onChange={(e) => setRecipeName(e.target.value)}
-                                            placeholder="Ex: Raclette ou Fondue..."
-                                            className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-black text-slate-900 text-sm shadow-sm"
-                                        />
-                                    </div>
-
+                                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Menu</label><input type="text" value={recipeName} onChange={(e) => setRecipeName(e.target.value)} placeholder="Ex: Raclette..." className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-black text-slate-900 text-sm shadow-sm"/></div>
                                     <div className="space-y-2">
-                                        <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                            <ChefHat size={12} className="text-blue-500" />
-                                            <span>Cuisiniers</span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {participants.map(name => (
-                                                <button
-                                                    key={name}
-                                                    onClick={() => toggleCook(name)}
-                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border-2 ${
-                                                        cooks.includes(name)
-                                                        ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-105'
-                                                        : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
-                                                    }`}
-                                                >
-                                                    {name}
-                                                </button>
-                                            ))}
-                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"><ChefHat size={12} className="text-blue-500" /><span>Cuisiniers</span></div>
+                                        <div className="flex flex-wrap gap-1.5">{participants.map(name => (<button key={name} onClick={() => toggleCook(name)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border-2 ${cooks.includes(name) ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-105' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}>{name}</button>))}</div>
                                     </div>
-
                                     <div className="space-y-3 pt-2">
-                                        <div className="flex items-center justify-between ml-1">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ingrédients</span>
-                                            <button 
-                                                onClick={addIngredient}
-                                                className="text-[9px] font-black bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-100 transition-all border border-blue-100"
-                                            >
-                                                <Plus size={12} />
-                                                Ajouter
-                                            </button>
-                                        </div>
-
+                                        <div className="flex items-center justify-between ml-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ingrédients</span><button onClick={addIngredient} className="text-[9px] font-black bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-100 transition-all border border-blue-100"><Plus size={12} />Ajouter</button></div>
                                         <div className="space-y-2">
-                                            {ingredients.length === 0 ? (
-                                                <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
-                                                    <p className="text-[11px] font-bold text-slate-300 italic">Aucun ingrédient saisi</p>
-                                                </div>
-                                            ) : (
-                                                ingredients.map((ing) => (
-                                                    <div key={ing.id} className="flex gap-1.5 group animate-in slide-in-from-left-4 duration-200">
-                                                        <input 
-                                                            type="number" 
-                                                            value={ing.quantity}
-                                                            onChange={(e) => updateIngredient(ing.id, 'quantity', e.target.value)}
-                                                            className="w-14 px-1 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-blue-500 focus:outline-none font-black text-center text-slate-900 text-xs"
-                                                        />
-                                                        <select
-                                                            value={ing.unit}
-                                                            onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
-                                                            className="w-20 px-1 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-blue-500 focus:outline-none font-bold text-slate-600 text-[9px] appearance-none text-center"
-                                                        >
-                                                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                                        </select>
-                                                        <input 
-                                                            type="text" 
-                                                            value={ing.name}
-                                                            onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)}
-                                                            placeholder="Ingrédient..."
-                                                            className="flex-1 px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-blue-500 focus:outline-none font-bold text-slate-900 text-xs"
-                                                        />
-                                                        <button 
-                                                            onClick={() => removeIngredient(ing.id)}
-                                                            className="p-2 text-slate-300 hover:text-red-500 transition-all"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                ))
-                                            )}
+                                            {ingredients.length === 0 ? (<div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50"><p className="text-[11px] font-bold text-slate-300 italic">Aucun ingrédient saisi</p></div>) : (ingredients.map((ing) => (<div key={ing.id} className="flex gap-1.5 group animate-in slide-in-from-left-4 duration-200"><input type="number" value={ing.quantity} onChange={(e) => updateIngredient(ing.id, 'quantity', e.target.value)} className="w-14 px-1 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-blue-500 focus:outline-none font-black text-center text-slate-900 text-xs"/><select value={ing.unit} onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)} className="w-20 px-1 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-blue-500 focus:outline-none font-bold text-slate-600 text-[9px] appearance-none text-center">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select><input type="text" value={ing.name} onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)} placeholder="Ingrédient..." className="flex-1 px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-blue-500 focus:outline-none font-bold text-slate-900 text-xs"/><button onClick={() => removeIngredient(ing.id)} className="p-2 text-slate-300 hover:text-red-500 transition-all"><Trash2 size={16} /></button></div>)))}
                                         </div>
                                     </div>
                                 </div>
                             )}
                         </div>
-
                         <div className="px-5 py-4 border-t border-slate-100 bg-white flex gap-3 shrink-0">
-                            <button 
-                                onClick={onClose}
-                                className="flex-1 py-3.5 rounded-xl font-bold text-xs text-slate-400 hover:bg-slate-50 transition-all"
-                            >
-                                Annuler
-                            </button>
-                            <button 
-                                onClick={handleSave}
-                                className={`flex-[2] py-3.5 rounded-xl font-black text-xs text-white shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95 ${
-                                    isRestaurant 
-                                    ? 'bg-orange-500 shadow-orange-100' 
-                                    : 'bg-blue-600 shadow-blue-100'
-                                }`}
-                            >
-                                <Save size={16} />
-                                Confirmer
-                            </button>
+                            <button onClick={onClose} className="flex-1 py-3.5 rounded-xl font-bold text-xs text-slate-400 hover:bg-slate-50 transition-all">Annuler</button>
+                            <button onClick={handleSave} className={`flex-[2] py-3.5 rounded-xl font-black text-xs text-white shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95 ${isRestaurant ? 'bg-orange-500 shadow-orange-100' : 'bg-blue-600 shadow-blue-100'}`}><Save size={16} />Confirmer</button>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        // 4. Meal Planner
         const MealPlanner = ({ slots, participants, onUpdateSlot }) => {
             const [selectedSlot, setSelectedSlot] = useState(null);
-
             const stats = useMemo(() => {
                 return slots.reduce((acc, slot) => {
-                    if (slot.isRestaurant) {
-                        acc.restaurant++;
-                    } else if (slot.recipeName.trim() !== '') {
-                        acc.planned++;
-                    } else {
-                        acc.toFill++;
-                    }
+                    if (slot.isRestaurant) acc.restaurant++;
+                    else if (slot.recipeName && slot.recipeName.trim() !== '') acc.planned++;
+                    else acc.toFill++;
                     return acc;
                 }, { planned: 0, restaurant: 0, toFill: 0 });
             }, [slots]);
@@ -489,120 +296,42 @@
 
             return (
                 <div className="space-y-4">
-                    {/* Tableau de bord compact */}
                     <div className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
                         <div className="flex items-center gap-3 shrink-0">
-                            <div className="flex flex-col">
-                                <span className="text-[14px] font-black text-blue-600 leading-tight">{stats.planned}</span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Cuisinés</span>
-                            </div>
+                            <div className="flex flex-col"><span className="text-[14px] font-black text-blue-600 leading-tight">{stats.planned}</span><span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Cuisinés</span></div>
                             <div className="w-px h-6 bg-slate-100"></div>
-                            <div className="flex flex-col">
-                                <span className="text-[14px] font-black text-orange-500 leading-tight">{stats.restaurant}</span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Restos</span>
-                            </div>
+                            <div className="flex flex-col"><span className="text-[14px] font-black text-orange-500 leading-tight">{stats.restaurant}</span><span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Restos</span></div>
                             <div className="w-px h-6 bg-slate-100"></div>
-                            <div className="flex flex-col">
-                                <span className="text-[14px] font-black text-red-400 leading-tight">{stats.toFill}</span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Vides</span>
-                            </div>
+                            <div className="flex flex-col"><span className="text-[14px] font-black text-red-400 leading-tight">{stats.toFill}</span><span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Vides</span></div>
                         </div>
-                        
-                        <div className="hidden xs:flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-xl">
-                            <CheckCircle2 size={12} className="text-green-500" />
-                            <span className="text-[10px] font-bold text-slate-500">{participants.length} Participants</span>
-                        </div>
+                        <div className="hidden xs:flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-xl"><CheckCircle2 size={12} className="text-green-500" /><span className="text-[10px] font-bold text-slate-500">{participants.length} Participants</span></div>
                     </div>
 
                     <div className="space-y-6 pb-24">
                         {Object.values(days).map((day) => (
                             <div key={day.name} className="flex flex-col sm:flex-row gap-3 sm:gap-4 group/day">
-                                
-                                {/* Colonne Date */}
                                 <div className="w-full sm:w-12 shrink-0 flex flex-row sm:flex-col items-center sm:items-center justify-start sm:pt-4 gap-2 sm:gap-0 pl-1 sm:pl-0">
-                                    <span className="text-[10px] sm:text-[9px] font-black text-slate-400 uppercase tracking-tighter text-center">
-                                        {day.name.split(' ')[0].substring(0, 3)}
-                                    </span>
-                                    <span className="text-xl font-black text-slate-900 leading-none">
-                                        {day.name.split(' ')[1]}
-                                    </span>
+                                    <span className="text-[10px] sm:text-[9px] font-black text-slate-400 uppercase tracking-tighter text-center">{day.name.split(' ')[0].substring(0, 3)}</span>
+                                    <span className="text-xl font-black text-slate-900 leading-none">{day.name.split(' ')[1]}</span>
                                 </div>
-
-                                {/* Colonne Repas (Grid) */}
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {day.items.map(slot => (
                                         <div key={slot.id} className="relative h-full">
-                                            <button
-                                                onClick={() => setSelectedSlot(slot)}
-                                                className={`w-full text-left px-4 py-3.5 rounded-[1.5rem] transition-all border-2 flex flex-col justify-between h-full min-h-[110px] active:scale-[0.98] relative overflow-hidden group/card ${
-                                                    slot.isRestaurant 
-                                                    ? 'bg-slate-50 border-slate-200 text-slate-400 shadow-inner' 
-                                                    : slot.recipeName 
-                                                        ? 'bg-white border-blue-50 shadow-sm hover:shadow-md hover:border-blue-100' 
-                                                        : 'bg-white border-dashed border-red-50 text-slate-400 hover:border-red-100'
-                                                }`}
-                                            >
-                                                {/* Badge Type (Midi/Soir) */}
-                                                <div className="absolute top-0 right-0 p-3">
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-bl-xl rounded-tr-xl ${
-                                                        slot.type === 'Midi' 
-                                                        ? 'bg-yellow-50 text-yellow-600' 
-                                                        : 'bg-indigo-50 text-indigo-600'
-                                                    }`}>
-                                                        {slot.type}
-                                                    </span>
-                                                </div>
-
+                                            <button onClick={() => setSelectedSlot(slot)} className={`w-full text-left px-4 py-3.5 rounded-[1.5rem] transition-all border-2 flex flex-col justify-between h-full min-h-[110px] active:scale-[0.98] relative overflow-hidden group/card ${slot.isRestaurant ? 'bg-slate-50 border-slate-200 text-slate-400 shadow-inner' : slot.recipeName ? 'bg-white border-blue-50 shadow-sm hover:shadow-md hover:border-blue-100' : 'bg-white border-dashed border-red-50 text-slate-400 hover:border-red-100'}`}>
+                                                <div className="absolute top-0 right-0 p-3"><span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-bl-xl rounded-tr-xl ${slot.type === 'Midi' ? 'bg-yellow-50 text-yellow-600' : 'bg-indigo-50 text-indigo-600'}`}>{slot.type}</span></div>
                                                 <div className="flex-1 pr-2 pt-1">
                                                     {slot.isRestaurant ? (
-                                                        <div className="flex flex-col gap-2 text-slate-500 mt-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Store size={18} className="shrink-0 text-orange-400" />
-                                                                <span className="font-black italic text-sm tracking-tight uppercase">REPAS RESTO</span>
-                                                            </div>
-                                                        </div>
+                                                        <div className="flex flex-col gap-2 text-slate-500 mt-2"><div className="flex items-center gap-2"><Store size={18} className="shrink-0 text-orange-400" /><span className="font-black italic text-sm tracking-tight uppercase">REPAS RESTO</span></div></div>
                                                     ) : slot.recipeName ? (
-                                                        <div className="mt-1">
-                                                            <h4 className="font-black text-slate-900 text-base leading-tight line-clamp-2 mb-2 uppercase tracking-tight w-[85%]">{slot.recipeName}</h4>
-                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                                                                <ChefHat size={12} className="text-blue-500 shrink-0" />
-                                                                <span className="truncate">{slot.cooks.length > 0 ? slot.cooks.join(', ') : 'À définir'}</span>
-                                                            </div>
-                                                        </div>
+                                                        <div className="mt-1"><h4 className="font-black text-slate-900 text-base leading-tight line-clamp-2 mb-2 uppercase tracking-tight w-[85%]">{slot.recipeName}</h4><div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500"><ChefHat size={12} className="text-blue-500 shrink-0" /><span className="truncate">{slot.cooks.length > 0 ? slot.cooks.join(', ') : 'À définir'}</span></div></div>
                                                     ) : (
-                                                        <div className="flex flex-col justify-center h-full pb-2">
-                                                            <div className="flex items-center gap-2 text-red-300/60">
-                                                                <UtensilsCrossed size={20} />
-                                                                <span className="font-black italic text-sm uppercase tracking-tighter">À planifier</span>
-                                                            </div>
-                                                        </div>
+                                                        <div className="flex flex-col justify-center h-full pb-2"><div className="flex items-center gap-2 text-red-300/60"><UtensilsCrossed size={20} /><span className="font-black italic text-sm uppercase tracking-tighter">À planifier</span></div></div>
                                                     )}
                                                 </div>
-
-                                                {slot.ingredients.length > 0 && !slot.isRestaurant && (
-                                                    <div className="mt-3 flex items-center gap-1.5 text-[8px] font-black text-blue-500 uppercase tracking-widest">
-                                                        <span className="bg-blue-50 px-2 py-1 rounded-md">{slot.ingredients.length} INGRÉDIENTS</span>
-                                                    </div>
-                                                )}
+                                                {slot.ingredients.length > 0 && !slot.isRestaurant && (<div className="mt-3 flex items-center gap-1.5 text-[8px] font-black text-blue-500 uppercase tracking-widest"><span className="bg-blue-50 px-2 py-1 rounded-md">{slot.ingredients.length} INGRÉDIENTS</span></div>)}
                                             </button>
-
-                                            {/* Quick Switch Toggle */}
                                             <div className="absolute bottom-3 right-3 z-20" onClick={(e) => e.stopPropagation()}>
-                                                <button
-                                                    onClick={(e) => handleToggleRestaurant(e, slot)}
-                                                    title="Basculer en mode Resto"
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ring-1 ring-inset shadow-sm ${
-                                                        slot.isRestaurant 
-                                                        ? 'bg-orange-500 ring-orange-600' 
-                                                        : 'bg-slate-200 ring-slate-300 hover:bg-slate-300'
-                                                    }`}
-                                                >
-                                                    <span
-                                                        className={`${
-                                                        slot.isRestaurant ? 'translate-x-6' : 'translate-x-1'
-                                                        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm`}
-                                                    />
-                                                </button>
+                                                <button onClick={(e) => handleToggleRestaurant(e, slot)} title="Basculer en mode Resto" className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ring-1 ring-inset shadow-sm ${slot.isRestaurant ? 'bg-orange-500 ring-orange-600' : 'bg-slate-200 ring-slate-300 hover:bg-slate-300'}`}><span className={`${slot.isRestaurant ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm`} /></button>
                                             </div>
                                         </div>
                                     ))}
@@ -612,229 +341,139 @@
                     </div>
 
                     {selectedSlot && (
-                        <MealEditModal 
-                            slot={selectedSlot} 
-                            participants={participants}
-                            onClose={() => setSelectedSlot(null)} 
-                            onSave={(updated) => {
-                                onUpdateSlot(updated);
-                                setSelectedSlot(null);
-                            }}
-                        />
+                        <MealEditModal slot={selectedSlot} participants={participants} onClose={() => setSelectedSlot(null)} onSave={(updated) => { onUpdateSlot(updated); setSelectedSlot(null); }} />
                     )}
                 </div>
             );
         };
 
-        // 5. Main App
-        const STORAGE_KEY = 'snoweek_v3_state';
-
         const App = () => {
-            const [state, setState] = useState(() => {
-                const hash = window.location.hash.substring(1);
-                if (hash) {
-                    try {
-                        const decoded = JSON.parse(atob(decodeURIComponent(hash)));
-                        if (decoded.slots) {
-                            window.history.replaceState(null, "", window.location.pathname);
-                            return decoded;
-                        }
-                    } catch (e) { console.error("URL invalide"); }
-                }
-
-                const saved = localStorage.getItem(STORAGE_KEY);
-                if (saved) return JSON.parse(saved);
-
-                return {
-                    slots: INITIAL_SLOTS,
-                    participants: DEFAULT_PARTICIPANTS,
-                    tripName: 'ADDR SNOWEEK',
-                    tripSubtitle: 'SÉJOUR JANVIER 2026',
-                    version: 2
-                };
-            });
-
+            // State initial 'null' pour savoir qu'on charge les données
+            const [state, setState] = useState(null);
             const [activeTab, setActiveTab] = useState('planner');
             const [isAdminOpen, setIsAdminOpen] = useState(false);
+            const [isConnected, setIsConnected] = useState(false);
 
+            // --- MAGIE FIREBASE ---
             useEffect(() => {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            }, [state]);
+                const dataRef = ref(db, DB_PATH);
+                
+                // On écoute les changements en temps réel
+                const unsubscribe = onValue(dataRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        // Si des données existent, on les charge
+                        setState(data);
+                        setIsConnected(true);
+                    } else {
+                        // Si la base est vide (première fois), on envoie les données par défaut
+                        set(dataRef, DEFAULT_STATE);
+                    }
+                }, (error) => {
+                    console.error("Erreur Firebase:", error);
+                    alert("Erreur de connexion à la base de données. Vérifiez votre connexion internet.");
+                });
+
+                return () => unsubscribe();
+            }, []);
+
+            // Fonction générique pour sauvegarder tout l'état dans Firebase
+            const saveToFirebase = (newState) => {
+                // On met à jour l'état local (pour la fluidité) ET Firebase
+                setState(newState); 
+                set(ref(db, DB_PATH), newState).catch(err => console.error("Erreur sauvegarde:", err));
+            };
 
             const updateSlot = (updatedSlot) => {
-                setState(prev => ({
-                    ...prev,
-                    slots: prev.slots.map(s => s.id === updatedSlot.id ? updatedSlot : s)
-                }));
+                const newState = {
+                    ...state,
+                    slots: state.slots.map(s => s.id === updatedSlot.id ? updatedSlot : s)
+                };
+                saveToFirebase(newState);
             };
 
             const updateParticipants = (newParticipants) => {
-                setState(prev => ({ ...prev, participants: newParticipants }));
+                const newState = { ...state, participants: newParticipants };
+                saveToFirebase(newState);
+            };
+            
+            const updateTripInfo = (field, value) => {
+                const newState = { ...state, [field]: value };
+                saveToFirebase(newState);
             };
 
             const handleReset = () => {
-                if (window.confirm("⚠️ Réinitialiser tout le séjour ? Tous les menus et ingrédients seront effacés.")) {
-                    setState({
-                        slots: INITIAL_SLOTS,
-                        participants: DEFAULT_PARTICIPANTS,
-                        tripName: 'ADDR SNOWEEK',
-                        tripSubtitle: 'SÉJOUR JANVIER 2026',
-                        version: Date.now()
-                    });
+                if (window.confirm("⚠️ Réinitialiser tout le séjour ? Cela effacera tout pour tout le monde !")) {
+                    saveToFirebase(DEFAULT_STATE);
                     setIsAdminOpen(false);
                 }
             };
 
-            const shoppingList = useMemo(() => {
-                const aggregate = {};
-                state.slots.forEach(slot => {
-                    if (!slot.isRestaurant) {
-                        slot.ingredients.forEach(ing => {
-                            const key = `${ing.name.trim().toLowerCase()}-${ing.unit.toLowerCase()}`;
-                            if (aggregate[key]) {
-                                aggregate[key].totalQuantity += Number(ing.quantity);
-                            } else {
-                                aggregate[key] = {
-                                    name: ing.name.trim(),
-                                    unit: ing.unit,
-                                    totalQuantity: Number(ing.quantity)
-                                };
-                            }
-                        });
-                    }
-                });
-                return Object.values(aggregate).sort((a, b) => a.name.localeCompare(b.name));
-            }, [state.slots]);
+            // Ecran de chargement si pas encore connecté
+            if (!state) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-400 gap-4">
+                        <Loader2 className="animate-spin text-blue-600" size={40} />
+                        <p className="font-bold text-sm tracking-widest uppercase animate-pulse">Connexion au Snoweek...</p>
+                    </div>
+                );
+            }
+
+            const shoppingList = state.slots.reduce((acc, slot) => {
+                if (!slot.isRestaurant) {
+                    slot.ingredients.forEach(ing => {
+                        const key = `${ing.name.trim().toLowerCase()}-${ing.unit.toLowerCase()}`;
+                        if (acc[key]) acc[key].totalQuantity += Number(ing.quantity);
+                        else acc[key] = { name: ing.name.trim(), unit: ing.unit, totalQuantity: Number(ing.quantity) };
+                    });
+                }
+                return acc;
+            }, {});
+            const shoppingArray = Object.values(shoppingList).sort((a, b) => a.name.localeCompare(b.name));
 
             return (
                 <div className="min-h-screen bg-slate-50 text-slate-900 pb-24">
-                    {/* Header Dynamique */}
                     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
                         <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-100">
-                                <Utensils size={20} />
-                            </div>
+                            <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-100"><Utensils size={20} /></div>
                             <div>
                                 <h1 className="text-lg font-black tracking-tight text-slate-900 leading-none uppercase">{state.tripName}</h1>
-                                <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-1">{state.tripSubtitle}</p>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{state.tripSubtitle}</p>
+                                </div>
                             </div>
                         </div>
-
-                        <button 
-                            onClick={() => setIsAdminOpen(true)}
-                            className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full transition-all border border-slate-100"
-                        >
-                            <Settings size={20} />
-                        </button>
+                        <button onClick={() => setIsAdminOpen(true)} className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full transition-all border border-slate-100"><Settings size={20} /></button>
                     </header>
 
-                    {/* Main Content */}
                     <main className="max-w-4xl mx-auto px-4 pt-4">
-                        {activeTab === 'planner' ? (
-                            <MealPlanner 
-                                slots={state.slots} 
-                                participants={state.participants}
-                                onUpdateSlot={updateSlot} 
-                            />
-                        ) : (
-                            <ShoppingSummary items={shoppingList} />
-                        )}
+                        {activeTab === 'planner' ? <MealPlanner slots={state.slots} participants={state.participants} onUpdateSlot={updateSlot} /> : <ShoppingSummary items={shoppingArray} />}
                     </main>
 
-                    {/* Navigation */}
                     <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-sm">
                         <div className="bg-white/80 backdrop-blur-xl border border-white/50 p-1.5 rounded-[2rem] shadow-2xl flex gap-1.5">
-                            <button
-                                onClick={() => setActiveTab('planner')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] text-sm font-black transition-all ${
-                                    activeTab === 'planner' 
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                                    : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                <Calendar size={18} />
-                                Planning
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('shopping')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] text-sm font-black transition-all ${
-                                    activeTab === 'shopping' 
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                                    : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                <ShoppingCart size={18} />
-                                Courses
-                            </button>
+                            <button onClick={() => setActiveTab('planner')} className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] text-sm font-black transition-all ${activeTab === 'planner' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-400 hover:text-slate-600'}`}><Calendar size={18} />Planning</button>
+                            <button onClick={() => setActiveTab('shopping')} className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] text-sm font-black transition-all ${activeTab === 'shopping' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-400 hover:text-slate-600'}`}><ShoppingCart size={18} />Courses</button>
                         </div>
                     </nav>
 
-                    {/* Admin Panel */}
                     {isAdminOpen && (
                         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300 flex justify-end">
                             <div className="w-full max-w-md bg-white h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-                                <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                                    <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Paramètres</h2>
-                                    <button onClick={() => setIsAdminOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
-                                        <X size={24} />
-                                    </button>
-                                </div>
-
+                                <div className="p-5 border-b border-slate-100 flex items-center justify-between"><h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Paramètres</h2><button onClick={() => setIsAdminOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X size={24} /></button></div>
                                 <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                                    {/* Infos Séjour */}
                                     <section className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Type size={12} /> Personnalisation
-                                        </h3>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Type size={12} /> Personnalisation</h3>
                                         <div className="space-y-3">
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 ml-1">Nom du séjour</label>
-                                                <input 
-                                                    type="text"
-                                                    value={state.tripName}
-                                                    onChange={(e) => setState(prev => ({ ...prev, tripName: e.target.value }))}
-                                                    className="w-full px-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-sm"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 ml-1">Sous-titre / Dates</label>
-                                                <input 
-                                                    type="text"
-                                                    value={state.tripSubtitle}
-                                                    onChange={(e) => setState(prev => ({ ...prev, tripSubtitle: e.target.value }))}
-                                                    className="w-full px-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-sm"
-                                                />
-                                            </div>
+                                            <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 ml-1">Nom du séjour</label><input type="text" value={state.tripName} onChange={(e) => updateTripInfo('tripName', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-sm"/></div>
+                                            <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 ml-1">Sous-titre / Dates</label><input type="text" value={state.tripSubtitle} onChange={(e) => updateTripInfo('tripSubtitle', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-sm"/></div>
                                         </div>
                                     </section>
-
-                                    {/* Participants */}
-                                    <section className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Users size={12} /> Participants ({state.participants.length})
-                                        </h3>
-                                        <ParticipantManager 
-                                            participants={state.participants} 
-                                            onChange={updateParticipants} 
-                                        />
-                                    </section>
-
-                                    {/* Nettoyage */}
-                                    <section className="pt-6 border-t border-slate-100 space-y-3">
-                                        <h3 className="text-[10px] font-black text-red-400 uppercase tracking-[0.2em]">Actions</h3>
-                                        <button 
-                                            onClick={handleReset}
-                                            className="w-full py-3 bg-red-50 text-red-600 font-black text-xs rounded-xl border border-red-100 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <RotateCcw size={14} />
-                                            Réinitialiser tout le séjour
-                                        </button>
-                                    </section>
+                                    <section className="space-y-4"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Users size={12} /> Participants ({state.participants.length})</h3><ParticipantManager participants={state.participants} onChange={updateParticipants} /></section>
+                                    <section className="pt-6 border-t border-slate-100 space-y-3"><h3 className="text-[10px] font-black text-red-400 uppercase tracking-[0.2em]">Actions</h3><button onClick={handleReset} className="w-full py-3 bg-red-50 text-red-600 font-black text-xs rounded-xl border border-red-100 hover:bg-red-100 transition-all flex items-center justify-center gap-2"><RotateCcw size={14} />Réinitialiser tout le séjour</button></section>
                                 </div>
-                                
-                                <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
-                                    <p className="text-[10px] font-bold text-slate-400 italic">Toutes les modifications sont enregistrées automatiquement sur votre navigateur.</p>
-                                </div>
+                                <div className="p-6 bg-slate-50 border-t border-slate-100 text-center"><p className="text-[10px] font-bold text-slate-400 italic">Modifications enregistrées en temps réel.</p></div>
                             </div>
                         </div>
                     )}
