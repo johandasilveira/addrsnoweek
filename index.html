@@ -38,7 +38,7 @@
         import { createRoot } from 'react-dom/client';
         import { initializeApp } from 'firebase/app';
         import { getDatabase, ref, onValue, set } from 'firebase/database';
-        import { Calendar, ShoppingCart, Settings, RotateCcw, X, Users, Plus, Trash2, Save, Store, Loader2, ArrowDown } from 'lucide-react';
+        import { Calendar, ShoppingCart, Settings, RotateCcw, X, Users, Plus, Trash2, Save, Store, Loader2, ArrowDown, Edit2, CheckCircle2, Circle } from 'lucide-react';
 
         // --- CONFIG FIREBASE ---
         const firebaseConfig = {
@@ -227,6 +227,57 @@
             );
         };
 
+        const ShoppingItemEditModal = ({ item, onClose, onSave }) => {
+            const [newName, setNewName] = useState(item.displayName);
+            const [newUnit, setNewUnit] = useState(item.displayUnit);
+
+            const handleSave = () => {
+                onSave(item.refs, newName, newUnit);
+            };
+
+            return (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+                        <div className="p-4 border-b flex justify-between items-center">
+                            <h3 className="font-black text-lg">Modifier l'article</h3>
+                            <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nom de l'article</label>
+                                <input className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 outline-none" 
+                                    value={newName} onChange={e => setNewName(e.target.value)} />
+                                <p className="text-xs text-slate-400 px-1">Changer le nom pour corriger l'orthographe ou fusionner avec un autre article.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unité</label>
+                                <select className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 outline-none"
+                                    value={newUnit} onChange={e => setNewUnit(e.target.value)}>
+                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                </select>
+                                <p className="text-xs text-slate-400 px-1">Appliquer cette unité à toutes les occurrences de cet ingrédient.</p>
+                            </div>
+                            
+                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Utilisé dans :</div>
+                                <div className="flex flex-wrap gap-1">
+                                    {item.sources.map(s => (
+                                        <span key={s} className="bg-white text-blue-600 border border-blue-100 text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm">
+                                            {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t bg-slate-50 flex gap-3">
+                            <button onClick={onClose} className="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors">Annuler</button>
+                            <button onClick={handleSave} className="flex-[2] py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all">Enregistrer</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const MealEditModal = ({ slot, participants, onClose, onSave }) => {
             const [localSlot, setLocalSlot] = useState({
                 ...slot,
@@ -257,6 +308,15 @@
             const toggleCook = (name) => {
                 const currentCooks = safeSlot.cooks || [];
                 setLocalSlot({...safeSlot, cooks: currentCooks.includes(name) ? currentCooks.filter(c => c !== name) : [...currentCooks, name]});
+            };
+
+            const handleSave = () => {
+                // Filter out empty ingredients before saving
+                const cleanSlot = {
+                    ...localSlot,
+                    ingredients: localSlot.ingredients.filter(i => i.name && i.name.trim() !== '')
+                };
+                onSave(cleanSlot);
             };
 
             // Fonction de RESET locale qui sauvegarde immédiatement
@@ -318,7 +378,7 @@
                         </div>
                         <div className="p-3 border-t bg-white flex gap-3 shrink-0 pb-6 sm:pb-3">
                             <button onClick={handleLocalReset} className="flex-1 py-2.5 rounded-lg border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition-all flex items-center justify-center gap-2"><Trash2 size={16}/> RESET</button>
-                            <button onClick={()=>onSave(localSlot)} className="flex-[2] py-2.5 bg-blue-600 text-white rounded-lg font-black text-sm shadow-lg shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 transition-all"><Save size={16}/> Enregistrer</button>
+                            <button onClick={handleSave} className="flex-[2] py-2.5 bg-blue-600 text-white rounded-lg font-black text-sm shadow-lg shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 transition-all"><Save size={16}/> Enregistrer</button>
                         </div>
                     </div>
                 </div>
@@ -331,7 +391,8 @@
             const [activeTab, setActiveTab] = useState('planner');
             const [isAdminOpen, setIsAdminOpen] = useState(false);
             const [selectedSlot, setSelectedSlot] = useState(null);
-            const [draggedSlotId, setDraggedSlotId] = useState(null); // Pour le DnD
+            const [editingItem, setEditingItem] = useState(null); // Pour l'édition d'ingrédient
+            const [draggedSlotId, setDraggedSlotId] = useState(null);
 
             // CONNEXION FIREBASE
             useEffect(() => {
@@ -358,7 +419,6 @@
                 if (datesChanged && newStart && newEnd) {
                     const newSlots = generateSchedule(newStart, newStartPeriod, newEnd, newEndPeriod);
                     
-                    // SMART MERGE : On cherche si un repas existait déjà pour cette date/moment
                     const mergedSlots = newSlots.map((newSlot) => {
                         const existingSlot = state.slots.find(old => old.date === newSlot.date && old.type === newSlot.type);
                         if (existingSlot) {
@@ -383,7 +443,6 @@
                 await save(newState);
             };
 
-            // Fonction de Reset GLOBAL (Vider les contenus mais garder la structure)
             const resetAll = async () => {
                 const emptySlots = state.slots.map(slot => ({
                     ...slot,
@@ -399,16 +458,69 @@
                 });
             };
 
+            // UPDATE SHOPPING ITEM (Renaming / Changing unit)
+            const handleShoppingItemUpdate = (refs, newName, newUnit) => {
+                const newSlots = [...state.slots];
+                let changed = false;
+
+                refs.forEach(ref => {
+                    const slotIndex = newSlots.findIndex(s => s.id === ref.slotId);
+                    if (slotIndex > -1) {
+                        const slot = newSlots[slotIndex];
+                        // Need to create a new copy of ingredients array if we touch it
+                        const newIngredients = [...slot.ingredients];
+                        const ingIndex = newIngredients.findIndex(i => i.id === ref.ingId);
+                        
+                        if (ingIndex > -1) {
+                            // Update the ingredient
+                            newIngredients[ingIndex] = { 
+                                ...newIngredients[ingIndex], 
+                                name: newName, 
+                                unit: newUnit 
+                            };
+                            newSlots[slotIndex] = { ...slot, ingredients: newIngredients };
+                            changed = true;
+                        }
+                    }
+                });
+
+                if (changed) {
+                    save({ ...state, slots: newSlots });
+                    setEditingItem(null);
+                }
+            };
+            
+            // TOGGLE SHOPPING ITEM CHECK
+            const handleToggleShoppingItem = (item) => {
+                const newSlots = [...state.slots];
+                const targetStatus = !item.checked;
+                
+                item.refs.forEach(ref => {
+                    const slotIndex = newSlots.findIndex(s => s.id === ref.slotId);
+                    if (slotIndex > -1) {
+                        const newIngredients = [...newSlots[slotIndex].ingredients];
+                        const ingIndex = newIngredients.findIndex(i => i.id === ref.ingId);
+                        
+                        if (ingIndex > -1) {
+                            // Update checked status
+                            newIngredients[ingIndex] = { ...newIngredients[ingIndex], checked: targetStatus };
+                            newSlots[slotIndex] = { ...newSlots[slotIndex], ingredients: newIngredients };
+                        }
+                    }
+                });
+                
+                save({ ...state, slots: newSlots });
+            };
+
             // DRAG AND DROP (SWAP) LOGIC
             const handleDragStart = (e, slotId) => {
                 setDraggedSlotId(slotId);
                 e.dataTransfer.effectAllowed = 'move';
-                // Petit hack pour ghost image sur mobile parfois
                 e.dataTransfer.setData('text/plain', slotId);
             };
 
             const handleDragOver = (e) => {
-                e.preventDefault(); // Nécessaire pour permettre le drop
+                e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
             };
 
@@ -425,7 +537,6 @@
                 const sourceSlot = newSlots[sourceIndex];
                 const targetSlot = newSlots[targetIndex];
 
-                // FIX: Ensure no undefined values are passed to state
                 const temp = {
                     recipeName: sourceSlot.recipeName || '',
                     isRestaurant: sourceSlot.isRestaurant || false,
@@ -453,7 +564,6 @@
                 setDraggedSlotId(null);
             };
 
-            // Mobile "Tap to Move" simulation using click
             const handleCardClick = (slot) => {
                 if (draggedSlotId && draggedSlotId !== slot.id) {
                     handleDrop({ preventDefault: () => {} }, slot.id);
@@ -469,7 +579,6 @@
                 if (draggedSlotId === slotId) setDraggedSlotId(null);
                 else setDraggedSlotId(slotId);
             };
-
 
             const stats = useMemo(() => {
                 if (!state || !state.slots) return { resto: 0, cooked: 0, todo: 0 };
@@ -496,27 +605,74 @@
                 state.slots.forEach(slot => {
                     if (!slot.isRestaurant && slot.ingredients && Array.isArray(slot.ingredients)) {
                         slot.ingredients.forEach(ing => {
-                            const name = ing.name.toLowerCase().trim();
+                            const nameRaw = ing.name.trim();
+                            const name = nameRaw.toLowerCase();
                             if (!name) return;
+                            
                             const q = parseFloat(ing.quantity) || 0;
                             const u = ing.unit;
+                            
                             const conv = CONVERSIONS[u];
-                            let key, normalizedQty = q;
-                            if (conv) { key = `${name}_${conv.type}`; normalizedQty = q * conv.factor; } 
-                            else { key = `${name}_${u}`; }
-                            if (!items[key]) { items[key] = { name: ing.name.trim(), type: conv ? conv.type : 'other', unit: u, quantity: 0 }; }
+                            let key, normalizedQty;
+                             if (conv) { 
+                                key = `${name}_${conv.type}`; 
+                                normalizedQty = q * conv.factor; 
+                            } else { 
+                                key = `${name}_${u}`; 
+                                normalizedQty = q;
+                            }
+
+                            if (!items[key]) {
+                                items[key] = { 
+                                    name: nameRaw, // Keep one display name (first encountered)
+                                    type: conv ? conv.type : 'other', 
+                                    unit: u, 
+                                    quantity: 0,
+                                    sources: new Set(),
+                                    refs: [] 
+                                }; 
+                            }
+                            
                             items[key].quantity += normalizedQty;
+                            // Add source
+                            const sourceName = slot.recipeName ? slot.recipeName : slot.dayName;
+                            items[key].sources.add(sourceName);
+                            items[key].refs.push({ slotId: slot.id, ingId: ing.id });
                         });
                     }
                 });
+
                 return Object.values(items).map(item => {
                     let displayQty = item.quantity;
                     let displayUnit = item.unit;
+                    
                     if (item.type === 'weight') { if (item.quantity >= 1000) { displayQty = item.quantity / 1000; displayUnit = 'kg'; } else { displayUnit = 'g'; } } 
                     else if (item.type === 'volume') { if (item.quantity >= 1000) { displayQty = item.quantity / 1000; displayUnit = 'L'; } else if (item.quantity >= 10) { displayQty = item.quantity / 10; displayUnit = 'cl'; } else { displayUnit = 'ml'; } }
+                    
                     displayQty = Math.round(displayQty * 100) / 100;
-                    return { name: item.name.charAt(0).toUpperCase() + item.name.slice(1), q: displayQty, unit: displayUnit };
-                }).sort((a,b) => a.name.localeCompare(b.name));
+
+                    // Calculate checked status
+                    // Item is checked if all its source ingredients are checked
+                    const allChecked = item.refs.every(ref => {
+                        const s = state.slots.find(slot => slot.id === ref.slotId);
+                        const i = s?.ingredients?.find(ing => ing.id === ref.ingId);
+                        return i?.checked;
+                    });
+                    
+                    return { 
+                        ...item,
+                        displayName: item.name.charAt(0).toUpperCase() + item.name.slice(1), 
+                        displayQty, 
+                        displayUnit,
+                        sources: Array.from(item.sources),
+                        checked: allChecked
+                    };
+                }).sort((a,b) => {
+                    // Sort checked items to the bottom optionally, or just keep alphabetical
+                    // Let's keep alphabetical for now but checked state visual
+                    if (a.checked === b.checked) return a.displayName.localeCompare(b.displayName);
+                    return a.checked ? 1 : -1; // Checked items at bottom
+                });
             }, [state]);
 
             if (error) return <div className="p-10 text-red-600 font-bold text-center">ERREUR: {error}</div>;
@@ -549,10 +705,11 @@
                                             <div className="text-xl font-black">{day.name.split(' ')[1]}</div>
                                         </div>
                                         <div className="flex-1 grid gap-3 sm:grid-cols-2">
-                                            {/* GHOST CELL pour alignement Soir si nécessaire */}
                                             {day.slots[0].type === 'Soir' && <div className="hidden sm:block bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200/50 relative opacity-50"><div className="absolute inset-0 flex items-center justify-center text-slate-300 text-xs font-bold uppercase tracking-widest">Midi (off)</div></div>}
                                             
-                                            {day.slots.map(slot => (
+                                            {day.slots.map(slot => {
+                                                const ingredientCount = slot.ingredients ? slot.ingredients.filter(i => i.name && i.name.trim()).length : 0;
+                                                return (
                                                 <div 
                                                     key={slot.id} 
                                                     draggable="true"
@@ -566,15 +723,12 @@
                                                     }`}
                                                 >
                                                     
-                                                    {/* CARD HEADER */}
                                                     <div className="flex justify-between items-start mb-1 gap-2">
                                                         <div className="flex flex-wrap items-center gap-1.5 flex-1">
                                                             <span className={`text-[9px] font-black px-2 py-0.5 rounded ${slot.type==='Midi'?'bg-yellow-100 text-yellow-700':'bg-indigo-100 text-indigo-700'}`}>{slot.type}</span>
-                                                            {/* COOKS IN HEADER */}
                                                             {slot.cooks && Array.isArray(slot.cooks) && slot.cooks.map(c=><span key={c} className="text-[9px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">{c}</span>)}
                                                         </div>
                                                         
-                                                        {/* DRAG HANDLE */}
                                                         <div 
                                                             onClick={(e) => handleMobileMoveClick(e, slot.id)}
                                                             className={`p-1 rounded hover:bg-slate-100 shrink-0 ${draggedSlotId === slot.id ? 'text-blue-600 bg-blue-100' : 'text-slate-300'}`}
@@ -583,13 +737,12 @@
                                                         </div>
                                                     </div>
 
-                                                    {/* CONTENT */}
                                                     {slot.isRestaurant ? (
                                                         <div className="text-slate-400 font-bold italic text-sm mt-3 flex items-center gap-1.5"><Store size={14}/> Sortie Resto</div>
                                                     ) : (
                                                         <>
                                                             <div className={`font-bold text-md leading-tight mt-1 ${!slot.recipeName && 'text-red-300 italic'}`}>{slot.recipeName || 'À définir...'}</div>
-                                                            {slot.ingredients && Array.isArray(slot.ingredients) && slot.ingredients.length > 0 && <div className="mt-2 text-[9px] font-bold text-blue-500">{slot.ingredients.length} ingrédients</div>}
+                                                            {ingredientCount > 0 && <div className="mt-2 text-[9px] font-bold text-blue-500">{ingredientCount} ingrédients</div>}
                                                         </>
                                                     )}
 
@@ -599,7 +752,7 @@
                                                         </div>
                                                     )}
                                                 </div>
-                                            ))}
+                                            )})}
                                         </div>
                                     </div>
                                 ))}
@@ -610,9 +763,22 @@
                                 <div className="space-y-0 divide-y">
                                     {shoppingList.length === 0 ? <p className="text-slate-400 italic py-4 text-center">Rien à acheter pour le moment.</p> : 
                                     shoppingList.map(item => (
-                                        <div key={item.name+item.unit} className="flex justify-between py-3">
-                                            <span className="font-bold text-slate-700">{item.name}</span>
-                                            <span className="font-black text-sm bg-blue-50 text-blue-600 px-2 py-1 rounded">{item.q} {item.unit}</span>
+                                        <div key={item.name+item.unit} className={`relative py-3 pr-20 min-h-[3.5rem] group hover:bg-slate-50 transition-colors -mx-2 px-2 rounded-lg flex items-center gap-3 ${item.checked ? 'bg-slate-50/50' : ''}`}>
+                                            <button onClick={(e) => {e.stopPropagation(); handleToggleShoppingItem(item);}} className="shrink-0 text-slate-300 hover:text-blue-600 transition-colors">
+                                                {item.checked ? <CheckCircle2 className="text-green-500 fill-green-50" size={22}/> : <Circle size={22}/>}
+                                            </button>
+                                            
+                                            <div onClick={() => setEditingItem(item)} className="flex-1 cursor-pointer">
+                                                <div className={`font-bold text-slate-700 leading-tight pr-2 transition-all ${item.checked ? 'line-through text-slate-400 decoration-slate-300' : ''}`}>{item.displayName}</div>
+                                            </div>
+
+                                            <div onClick={() => setEditingItem(item)} className="absolute top-2 right-2 flex flex-col items-end gap-1 cursor-pointer">
+                                                <div className={`flex flex-wrap justify-end gap-1 max-w-[120px] transition-opacity ${item.checked ? 'opacity-50' : ''}`}>
+                                                    {item.sources.slice(0, 2).map(s => <span key={s} className="text-[8px] leading-none bg-yellow-50 text-yellow-700 px-1.5 py-1 rounded font-bold border border-yellow-100 truncate max-w-[100px]">{s}</span>)}
+                                                    {item.sources.length > 2 && <span className="text-[8px] leading-none bg-slate-100 text-slate-500 px-1.5 py-1 rounded font-bold">+{item.sources.length - 2}</span>}
+                                                </div>
+                                                <span className={`font-black text-sm px-2 py-1 rounded shadow-sm transition-colors ${item.checked ? 'bg-slate-200 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>{item.displayQty} {item.displayUnit}</span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -621,6 +787,8 @@
                     </main>
 
                     {selectedSlot && <MealEditModal slot={selectedSlot} participants={state.participants} onClose={()=>setSelectedSlot(null)} onSave={(updatedSlot) => { const newSlots = state.slots.map(s => s.id === updatedSlot.id ? updatedSlot : s); save({...state, slots: newSlots}); setSelectedSlot(null); }} />}
+                    
+                    {editingItem && <ShoppingItemEditModal item={editingItem} onClose={()=>setEditingItem(null)} onSave={handleShoppingItemUpdate} />}
 
                     {isAdminOpen && <SettingsModal onClose={()=>setIsAdminOpen(false)} state={state} onSave={handleScheduleUpdate} onReset={resetAll} />}
 
