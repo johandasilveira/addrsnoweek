@@ -96,7 +96,8 @@
                     type: type,
                     isRestaurant: false,
                     recipeName: '',
-                    cooks: [], ingredients: []
+                    cooks: [], ingredients: [],
+                    pax: ''
                 });
                 if (dateStr === endDateStr && ((endPeriod === 'Midi' && type === 'Midi') || (endPeriod === 'Soir' && type === 'Soir'))) break;
                 if (!isMidi) current.setDate(current.getDate() + 1);
@@ -114,7 +115,8 @@
             isRestaurant: false,
             recipeName: 'Petit Déjeuner',
             cooks: [], 
-            ingredients: []
+            ingredients: [],
+            pax: '13'
         };
 
         const DEFAULT_START_DATE = '2026-01-24';
@@ -295,7 +297,8 @@
                 recipeName: slot.recipeName || '',
                 isRestaurant: slot.isRestaurant || false,
                 cooks: slot.cooks || [],
-                ingredients: slot.ingredients || []
+                ingredients: slot.ingredients || [],
+                pax: slot.pax || ''
             });
             const [lastAddedId, setLastAddedId] = useState(null);
             const nameInputRefs = useRef({});
@@ -339,7 +342,8 @@
                         recipeName: isBreakfast ? 'Petit Déjeuner' : '',
                         isRestaurant: false,
                         cooks: [],
-                        ingredients: []
+                        ingredients: [],
+                        pax: isBreakfast ? '13' : ''
                     };
                     onSave(emptySlot); // Sauvegarde directe et fermeture
                 }
@@ -370,11 +374,16 @@
                                 <div className="flex flex-col items-center justify-center h-64 text-slate-400 animate-in zoom-in-95"><Store size={48} className="text-orange-300 mb-3"/><p className="font-black text-lg text-orange-400 uppercase">Sortie Restaurant</p><p className="text-xs font-medium text-slate-400 mt-1">Aucune course nécessaire</p></div>
                             ) : (
                                 <>
-                                    {!isBreakfast && (
+                                    {!isBreakfast ? (
                                     <>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Au Menu</label><input className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-base text-slate-900 shadow-sm placeholder:text-slate-300" placeholder="Ex: Tartiflette..." value={safeSlot.recipeName} onChange={e=>setLocalSlot({...safeSlot, recipeName: e.target.value})}/></div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chefs Cuistots</label><div className="flex flex-wrap gap-1.5">{participants.map(p => (<button key={p} onClick={() => toggleCook(p)} className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all active:scale-95 ${safeSlot.cooks.includes(p)? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500'}`}>{p}</button>))}</div></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Au Menu</label><input className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-base text-slate-900 shadow-sm placeholder:text-slate-300" placeholder="Ex: Tartiflette..." value={safeSlot.recipeName} onChange={e=>setLocalSlot({...safeSlot, recipeName: e.target.value})}/></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Convives (Pax)</label><input type="number" className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-base text-slate-900 shadow-sm" placeholder="13" value={safeSlot.pax} onChange={e=>setLocalSlot({...safeSlot, pax: e.target.value})}/></div>
+                                        </div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chefs Cuistots</label><div className="flex flex-wrap gap-1.5">{participants.map(p => (<button key={p} onClick={() => toggleCook(p)} className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all active:scale-95 ${safeSlot.cooks.includes(p)? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500'}`}>{p}</button>))}</div></div>
                                     </>
+                                    ) : (
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre de personnes</label><input type="number" className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none font-bold text-base text-slate-900 shadow-sm" placeholder="13" value={safeSlot.pax} onChange={e=>setLocalSlot({...safeSlot, pax: e.target.value})}/></div>
                                     )}
                                     <div className="space-y-2 pt-2">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Liste des Ingrédients</label>
@@ -454,7 +463,8 @@
                                 recipeName: existingSlot.recipeName||'', 
                                 isRestaurant: existingSlot.isRestaurant||false, 
                                 cooks: existingSlot.cooks||[], 
-                                ingredients: existingSlot.ingredients||[] 
+                                ingredients: existingSlot.ingredients||[],
+                                pax: existingSlot.pax||''
                             };
                         }
                         return newSlot;
@@ -476,7 +486,8 @@
                     recipeName: slot.id === 'breakfast-global' ? 'Petit Déjeuner' : '',
                     isRestaurant: false,
                     cooks: [],
-                    ingredients: []
+                    ingredients: [],
+                    pax: slot.id === 'breakfast-global' ? '13' : ''
                 }));
                 
                 await save({
@@ -568,7 +579,8 @@
                     recipeName: sourceSlot.recipeName || '',
                     isRestaurant: sourceSlot.isRestaurant || false,
                     cooks: sourceSlot.cooks || [],
-                    ingredients: sourceSlot.ingredients || []
+                    ingredients: sourceSlot.ingredients || [],
+                    pax: sourceSlot.pax || ''
                 };
 
                 newSlots[sourceIndex] = {
@@ -576,7 +588,8 @@
                     recipeName: targetSlot.recipeName || '',
                     isRestaurant: targetSlot.isRestaurant || false,
                     cooks: targetSlot.cooks || [],
-                    ingredients: targetSlot.ingredients || []
+                    ingredients: targetSlot.ingredients || [],
+                    pax: targetSlot.pax || ''
                 };
 
                 newSlots[targetIndex] = {
@@ -584,7 +597,8 @@
                     recipeName: temp.recipeName,
                     isRestaurant: temp.isRestaurant,
                     cooks: temp.cooks,
-                    ingredients: temp.ingredients
+                    ingredients: temp.ingredients,
+                    pax: temp.pax
                 };
 
                 save({ ...state, slots: newSlots });
@@ -737,17 +751,20 @@
                                                 <div className="p-2 bg-orange-100 rounded-xl text-orange-600 shadow-sm"><Coffee size={20}/></div>
                                             </div>
                                             <div className="flex-1">
-                                                <div onClick={() => setSelectedSlot(slot)} className="relative p-4 rounded-2xl border-2 border-orange-100 bg-gradient-to-br from-orange-50 to-white cursor-pointer transition-all hover:shadow-md hover:border-orange-200 group">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                         <span className="text-[10px] font-black tracking-widest text-orange-400 uppercase">Tous les matins</span>
-                                                         <div className="p-1 rounded-full hover:bg-orange-100 text-orange-300 transition-colors"><Edit2 size={14}/></div>
+                                                <div onClick={() => setSelectedSlot(slot)} className="relative p-3 rounded-2xl border-2 border-orange-100 bg-gradient-to-br from-orange-50 to-white cursor-pointer transition-all hover:shadow-md hover:border-orange-200 group">
+                                                    <div className="flex justify-between items-start mb-1 gap-2">
+                                                         <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                                                            <span className="text-[9px] font-black px-2 py-0.5 rounded bg-orange-100 text-orange-700 uppercase tracking-widest">Tous les matins</span>
+                                                            {slot.pax && <span className="text-[9px] font-bold bg-orange-50 px-1.5 py-0.5 rounded text-orange-600 border border-orange-100">{slot.pax} pax</span>}
+                                                         </div>
+                                                         <div className="p-1 rounded-full hover:bg-orange-100 text-orange-300 transition-colors"><Edit2 size={12}/></div>
                                                     </div>
-                                                    <div className="font-black text-xl text-slate-800 mb-1">Petit Déjeuner</div>
+                                                    <div className="font-bold text-md leading-tight mt-1 text-slate-800">Petit Déjeuner</div>
                                                     <div className="flex items-center gap-2">
                                                         {ingredientCount > 0 ? (
-                                                            <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">{ingredientCount} produits</span>
+                                                            <span className="mt-2 text-[9px] font-bold text-orange-600">{ingredientCount} produits</span>
                                                         ) : (
-                                                            <span className="text-xs font-medium text-slate-400 italic">Liste vide</span>
+                                                            <span className="mt-2 text-[9px] font-medium text-slate-400 italic">Liste vide</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -784,6 +801,7 @@
                                                     <div className="flex justify-between items-start mb-1 gap-2">
                                                         <div className="flex flex-wrap items-center gap-1.5 flex-1">
                                                             <span className={`text-[9px] font-black px-2 py-0.5 rounded ${slot.type==='Midi'?'bg-yellow-100 text-yellow-700':'bg-indigo-100 text-indigo-700'}`}>{slot.type}</span>
+                                                            {slot.pax && <span className="text-[9px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">{slot.pax} pax</span>}
                                                             {slot.cooks && Array.isArray(slot.cooks) && slot.cooks.map(c=><span key={c} className="text-[9px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">{c}</span>)}
                                                         </div>
                                                         
