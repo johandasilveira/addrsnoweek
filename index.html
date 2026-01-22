@@ -58,7 +58,21 @@
 
         // --- CONSTANTES ---
         const DEFAULT_PARTICIPANTS = ["Amau", "Ani", "David", "Jojo", "Laure", "Léo", "Lucile", "Nathan", "Paloma", "Ségo", "Solé", "Thib", "Youri"];
-        const UNITS = ["unité(s)", "g", "kg", "ml", "cl", "L", "paquet(s)", "botte(s)", "boîte(s)"];
+        const UNITS = [
+            "g", 
+            "kg", 
+            "ml", 
+            "cl", 
+            "L", 
+            "unité(s)", 
+            "boîte(s)", 
+            "botte(s)", 
+            "bouteille(s)", 
+            "gousse(s)", 
+            "paquet(s)", 
+            "pot(s)", 
+            "sachet(s)"
+        ];
         const DAYS_OF_WEEK = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
         const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
         const CONVERSIONS = { 'g': {type:'weight',factor:1}, 'kg': {type:'weight',factor:1000}, 'ml': {type:'volume',factor:1}, 'cl': {type:'volume',factor:10}, 'L': {type:'volume',factor:1000} };
